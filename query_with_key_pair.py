@@ -32,7 +32,6 @@ if use_passphrase:
         database=os.getenv('SNOWFLAKE_DATABASE'),
         schema=os.getenv('SNOWFLAKE_SCHEMA')
     )
-
 else:
     conn = snowflake.connector.connect(
         user=os.environ['SNOWFLAKE_USER'],
@@ -46,6 +45,6 @@ else:
 
 cs = conn.cursor()
 cs.execute('SELECT CURRENT_VERSION()')
-print(cs.fetchone())
+print("Snowflake version:", cs.fetchone()[0])
 cs.close()
 conn.close()
