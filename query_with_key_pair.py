@@ -6,7 +6,7 @@ from cryptography.hazmat.backends import default_backend
 use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
 
 if use_passphrase:
-    passphrase = os.getenv('SNOWFLAKE_PASSPHRASE')
+    passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
     if not passphrase:
         raise ValueError("Passphrase not provided for encrypted key!")
 
