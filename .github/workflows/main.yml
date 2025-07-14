@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: pip install snowflake-connector-python cryptography
 
-      - name: Run Snowflake SQL (passphrase optional)
+      - name: Run Snowflake Query with Key Pair
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -29,11 +29,9 @@ jobs:
           SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
           SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }} # optional
-          USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }} # set to "true" or "false"
+          SNOWFLAKE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }}
+          USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }}
         run: |
           echo "$SNOWFLAKE_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
           python query_with_key_pair.py
-
-         
