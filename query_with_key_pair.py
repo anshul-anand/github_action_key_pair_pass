@@ -4,15 +4,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
-print("USE_PASSPHRASE:", os.getenv("USE_PASSPHRASE"))
-print("SNOWFLAKE_PASSPHRASE length:", len(os.getenv("SNOWFLAKE_PASSPHRASE") or ""))
-
 
 if use_passphrase:
-    passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
-    print("USE_PASSPHRASE:", os.getenv("USE_PASSPHRASE"))
-    print("SNOWFLAKE_PASSPHRASE length:", len(os.getenv("SNOWFLAKE_PASSPHRASE") or ""))
-
+    passphrase = os.getenv('SNOWFLAKE_PASSPHRASE')
     if not passphrase:
         raise ValueError("Passphrase not provided for encrypted key!")
 
