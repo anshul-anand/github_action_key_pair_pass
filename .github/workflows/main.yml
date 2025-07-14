@@ -39,7 +39,7 @@ jobs:
           import os
           import snowflake.connector
 
-          USE_PASSPHRASE = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
+          use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
 
           if USE_PASSPHRASE:
               from cryptography.hazmat.primitives import serialization
