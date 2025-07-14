@@ -38,17 +38,20 @@ jobs:
           python -c "
           import os
           import snowflake.connector
+          from cryptography.hazmat.primitives import serialization
+          from cryptography.hazmat.backends import default_backend
 
-          USE_PASSPHRASE = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
+          use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
 
-          if USE_PASSPHRASE:
-              from cryptography.hazmat.primitives import serialization
-              from cryptography.hazmat.backends import default_backend
+          if use_passphrase:
+              passphrase = os.getenv('SNOWFLAKE_PASSPHRASE')
+              if not passphrase:
+                  raise ValueError("Passphrase not provided for encrypted key!")
 
               with open('key.pem', 'rb') as f:
                   private_key = serialization.load_pem_private_key(
                       f.read(),
-                      password=os.getenv('SNOWFLAKE_PASSPHRASE').encode(),
+                      password=passphrase.encode(),
                       backend=default_backend()
                   )
 
@@ -66,7 +69,7 @@ jobs:
                   warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
                   database=os.getenv('SNOWFLAKE_DATABASE'),
                   schema=os.getenv('SNOWFLAKE_SCHEMA')
-              ) 
+              )
 
           else:
               conn = snowflake.connector.connect(
@@ -84,4 +87,4 @@ jobs:
           print(cs.fetchone())
           cs.close()
           conn.close()
-          "
+"
