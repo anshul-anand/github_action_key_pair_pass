@@ -29,7 +29,7 @@ jobs:
           SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
           SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }} # optional
+          SNOWFLAKE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }} # optional
           USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }} # set to "true" or "false"
         run: |
           echo "$SNOWFLAKE_PRIVATE_KEY" > key.pem
