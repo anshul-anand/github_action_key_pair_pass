@@ -1,0 +1,87 @@
+name: Deploy to Snowflake
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install snowflake-connector-python cryptography
+
+      - name: Run Snowflake SQL (passphrase optional)
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          SNOWFLAKE_PASSPHRASE: ${{ secrets.SNOWFLAKE_PASSPHRASE }} # optional
+          USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }} # set to "true" or "false"
+        run: |
+          echo "$SNOWFLAKE_PRIVATE_KEY" > key.pem
+          chmod 600 key.pem
+
+          python -c "
+          import os
+          import snowflake.connector
+
+          USE_PASSPHRASE = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
+
+          if USE_PASSPHRASE:
+              from cryptography.hazmat.primitives import serialization
+              from cryptography.hazmat.backends import default_backend
+
+              with open('key.pem', 'rb') as f:
+                  private_key = serialization.load_pem_private_key(
+                      f.read(),
+                      password=os.getenv('SNOWFLAKE_PASSPHRASE').encode(),
+                      backend=default_backend()
+                  )
+
+              pkb = private_key.private_bytes(
+                  encoding=serialization.Encoding.DER,
+                  format=serialization.PrivateFormat.PKCS8,
+                  encryption_algorithm=serialization.NoEncryption()
+              )
+
+              conn = snowflake.connector.connect(
+                  user=os.environ['SNOWFLAKE_USER'],
+                  account=os.environ['SNOWFLAKE_ACCOUNT'],
+                  private_key=pkb,
+                  role=os.getenv('SNOWFLAKE_ROLE'),
+                  warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+                  database=os.getenv('SNOWFLAKE_DATABASE'),
+                  schema=os.getenv('SNOWFLAKE_SCHEMA')
+              ) 
+
+          else:
+              conn = snowflake.connector.connect(
+                  user=os.environ['SNOWFLAKE_USER'],
+                  account=os.environ['SNOWFLAKE_ACCOUNT'],
+                  private_key_file='key.pem',
+                  role=os.getenv('SNOWFLAKE_ROLE'),
+                  warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+                  database=os.getenv('SNOWFLAKE_DATABASE'),
+                  schema=os.getenv('SNOWFLAKE_SCHEMA')
+              )
+
+          cs = conn.cursor()
+          cs.execute('SELECT CURRENT_VERSION()')
+          print(cs.fetchone())
+          cs.close()
+          conn.close()
+          "
