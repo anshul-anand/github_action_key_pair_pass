@@ -1,52 +1,38 @@
-import os
-import snowflake.connector
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
+name: Deploy to Snowflake
 
-use_passphrase = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
+on:
+  push:
+    branches: [main]
 
-print("🔐 Using passphrase:", use_passphrase)
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-if use_passphrase:
-    passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
-    if not passphrase:
-        raise ValueError("Missing passphrase for encrypted key!")
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    with open("key.pem", "rb") as f:
-        private_key = serialization.load_pem_private_key(
-            f.read(),
-            password=passphrase.encode(),
-            backend=default_backend()
-        )
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-    pkb = private_key.private_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    )
+    - name: Install dependencies
+      run: pip install snowflake-connector-python cryptography
 
-    conn = snowflake.connector.connect(
-        user=os.environ['SNOWFLAKE_USER'],
-        account=os.environ['SNOWFLAKE_ACCOUNT'],
-        private_key=pkb,
-        role=os.getenv('SNOWFLAKE_ROLE'),
-        warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
-        database=os.getenv('SNOWFLAKE_DATABASE'),
-        schema=os.getenv('SNOWFLAKE_SCHEMA')
-    )
-else:
-    conn = snowflake.connector.connect(
-        user=os.environ['SNOWFLAKE_USER'],
-        account=os.environ['SNOWFLAKE_ACCOUNT'],
-        private_key_file='key.pem',
-        role=os.getenv('SNOWFLAKE_ROLE'),
-        warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
-        database=os.getenv('SNOWFLAKE_DATABASE'),
-        schema=os.getenv('SNOWFLAKE_SCHEMA')
-    )
-
-cur = conn.cursor()
-cur.execute("SELECT CURRENT_VERSION()")
-print("✅ Snowflake version:", cur.fetchone()[0])
-cur.close()
-conn.close()
+    - name: Write Key File & Run
+      env:
+        SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+        SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+        SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+        SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+        SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+        SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+        SNOWFLAKE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }}
+        USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }}
+      run: |
+        echo "$SNOWFLAKE_PRIVATE_KEY" > key.pem
+        chmod 600 key.pem
+        head -n 2 key.pem  # Debug: Confirm format
+        python query_with_key_pair.py
