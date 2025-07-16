@@ -3,16 +3,15 @@ import snowflake.connector
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-use_passphrase = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
-
-print("🔐 Using passphrase:", use_passphrase)
+use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
 
 if use_passphrase:
+    print("🔐 Using passphrase-protected private key")
     passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
     if not passphrase:
-        raise ValueError("Missing passphrase for encrypted key!")
+        raise ValueError("Passphrase not provided for encrypted key!")
 
-    with open("key.pem", "rb") as f:
+    with open('key.p8', 'rb') as f:
         private_key = serialization.load_pem_private_key(
             f.read(),
             password=passphrase.encode(),
@@ -35,18 +34,19 @@ if use_passphrase:
         schema=os.getenv('SNOWFLAKE_SCHEMA')
     )
 else:
+    print("🔓 Using unencrypted private key")
     conn = snowflake.connector.connect(
         user=os.environ['SNOWFLAKE_USER'],
         account=os.environ['SNOWFLAKE_ACCOUNT'],
-        private_key_file='key.pem',
+        private_key_file='key.p8',
         role=os.getenv('SNOWFLAKE_ROLE'),
         warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
         database=os.getenv('SNOWFLAKE_DATABASE'),
         schema=os.getenv('SNOWFLAKE_SCHEMA')
     )
 
-cur = conn.cursor()
-cur.execute("SELECT CURRENT_VERSION()")
-print("✅ Snowflake version:", cur.fetchone()[0])
-cur.close()
+cs = conn.cursor()
+cs.execute("SELECT CURRENT_VERSION()")
+print("✅ Snowflake version:", cs.fetchone()[0])
+cs.close()
 conn.close()
