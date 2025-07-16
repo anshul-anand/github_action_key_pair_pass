@@ -1,40 +1,52 @@
-name: Connect to Snowflake with Key Pair
+import os
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+import snowflake.connector
 
-on:
-  push:
-    branches: [main]
+use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
+print("USE_PASSPHRASE =", use_passphrase)
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+if use_passphrase:
+    passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
+    if not passphrase:
+        raise ValueError("❌ Passphrase not provided for encrypted key!")
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    with open('key.p8', 'rb') as f:
+        private_key = serialization.load_pem_private_key(
+            f.read(),
+            password=passphrase.encode(),
+            backend=default_backend()
+        )
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    pkb = private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
 
-      - name: Install dependencies
-        run: pip install snowflake-connector-python cryptography
+    conn = snowflake.connector.connect(
+        user=os.environ['SNOWFLAKE_USER'],
+        account=os.environ['SNOWFLAKE_ACCOUNT'],
+        private_key=pkb,
+        role=os.environ.get('SNOWFLAKE_ROLE'),
+        warehouse=os.environ.get('SNOWFLAKE_WAREHOUSE'),
+        database=os.environ.get('SNOWFLAKE_DATABASE'),
+        schema=os.environ.get('SNOWFLAKE_SCHEMA')
+    )
 
-      - name: Save private key to file
-        run: |
-          echo "$SNOWFLAKE_PRIVATE_KEY" > key.p8
-          chmod 600 key.p8
-        env:
-          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+else:
+    conn = snowflake.connector.connect(
+        user=os.environ['SNOWFLAKE_USER'],
+        account=os.environ['SNOWFLAKE_ACCOUNT'],
+        private_key_file='key.p8',
+        role=os.environ.get('SNOWFLAKE_ROLE'),
+        warehouse=os.environ.get('SNOWFLAKE_WAREHOUSE'),
+        database=os.environ.get('SNOWFLAKE_DATABASE'),
+        schema=os.environ.get('SNOWFLAKE_SCHEMA')
+    )
 
-      - name: Run Python to connect to Snowflake
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_KEY_PASSPHRASE }}
-          USE_PASSPHRASE: ${{ secrets.USE_PASSPHRASE }}
-        run: python query_with_key_pair.py
+cs = conn.cursor()
+cs.execute("SELECT CURRENT_VERSION()")
+print("✅ Snowflake Version:", cs.fetchone())
+cs.close()
+conn.close()
