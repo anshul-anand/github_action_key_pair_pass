@@ -3,14 +3,16 @@ import snowflake.connector
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-use_passphrase = os.getenv('USE_PASSPHRASE', 'false').strip().lower() == 'true'
+use_passphrase = os.getenv('USE_PASSPHRASE', 'false').lower() == 'true'
+
+print("🔐 Using passphrase:", use_passphrase)
 
 if use_passphrase:
     passphrase = os.getenv('SNOWFLAKE_KEY_PASSPHRASE')
     if not passphrase:
-        raise ValueError("Passphrase not provided for encrypted key!")
+        raise ValueError("Missing passphrase for encrypted key!")
 
-    with open('key.pem', 'rb') as f:
+    with open("key.pem", "rb") as f:
         private_key = serialization.load_pem_private_key(
             f.read(),
             password=passphrase.encode(),
@@ -43,8 +45,8 @@ else:
         schema=os.getenv('SNOWFLAKE_SCHEMA')
     )
 
-cs = conn.cursor()
-cs.execute('SELECT CURRENT_VERSION()')
-print("Snowflake version:", cs.fetchone()[0])
-cs.close()
+cur = conn.cursor()
+cur.execute("SELECT CURRENT_VERSION()")
+print("✅ Snowflake version:", cur.fetchone()[0])
+cur.close()
 conn.close()
